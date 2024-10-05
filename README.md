@@ -4,17 +4,20 @@ sanboxPython is a Python playground for learning and experimenting. Explore libr
 Feel free to create new files, experiment with different code snippets, and explore the vast world of Python programming.
 
 rollDice.py
-    Description: 
+ - Description: 
 
 rps-rock-paper-scissors.py
-    Description: 
+  - Description: 
 
-tranlator
-    - translator.py
-      - Description: 
-    - translator_en.py
-      - Description: 
-    - translate_sys.py
-      - Description: 
-    - tsysen.py
-      - Description: 
+translator
+ - translator.py
+   - Description:
+ 
+ - translator_en.py
+   - Description: 
+
+ - translate_sys.py
+   - Description: 
+
+ - tsysen.py
+   - Description: 
