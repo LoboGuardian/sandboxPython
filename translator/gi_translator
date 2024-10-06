@@ -1,0 +1,107 @@
+import gi
+import sys
+from deep_translator import GoogleTranslator
+from langdetect import detect, DetectorFactory
+from langdetect.lang_detect_exception import LangDetectException
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Pango
+
+# Set seed for language detection (optional)
+# DetectorFactory.seed = 0
+
+# Language dictionary with codes and names
+idiomas = {
+    "es": "Spanish",
+    "en": "English",
+    "pt": "Portuguese",
+    "de": "German",
+    "fr": "French",
+    "it": "Italian",
+    "zh-TW": "Chinese (Traditional)",
+    "ar": "Arabic",
+    "ru": "Russian",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "hi": "Hindi"
+}
+
+
+class TranslatorApp(Gtk.Window):
+    def __init__(self):
+        Gtk.Window.__init__(self, title="Language Detector & Translator")
+        self.set_border_width(10)
+        self.set_default_size(500, 400)
+
+        # Vertical Box Layout
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.add(vbox)
+
+        # Entry for text input
+        self.text_entry = Gtk.TextView()
+        self.text_entry.set_wrap_mode(Gtk.WrapMode.WORD)
+        vbox.pack_start(self.text_entry, True, True, 0)
+
+        # Button to detect and translate
+        self.translate_button = Gtk.Button(label="Detect and Translate")
+        self.translate_button.connect("clicked", self.on_translate_button_clicked)
+        vbox.pack_start(self.translate_button, False, False, 0)
+
+        # Text area to display translations
+        self.result_area = Gtk.TextView()
+        self.result_area.set_editable(False)
+        self.result_area.set_cursor_visible(False)
+        self.result_area.set_wrap_mode(Gtk.WrapMode.WORD)
+        self.result_buffer = self.result_area.get_buffer()
+
+        # Add scrollable view for result area
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        scroll.add(self.result_area)
+        vbox.pack_start(scroll, True, True, 0)
+
+    def on_translate_button_clicked(self, widget):
+        # Get input text
+        buffer = self.text_entry.get_buffer()
+        start_iter = buffer.get_start_iter()
+        end_iter = buffer.get_end_iter()
+        text = buffer.get_text(start_iter, end_iter, True)
+
+        # Clear previous results
+        self.result_buffer.set_text("")
+
+        if not text.strip():
+            self.result_buffer.set_text("The text provided is empty.")
+            return
+
+        try:
+            # Detect the language of the input text
+            language = detect(text)
+            language_name = idiomas.get(language, "Unknown")
+
+            result_text = f"Language detected: {language_name} ({language})\n\n"
+
+            # Translate to all other languages
+            for codigo, nombre in idiomas.items():
+                if codigo != language:  # Avoid redundant translation
+                    traduccion = GoogleTranslator(source=language, target=codigo).translate(text)
+                    result_text += f"Translation to {nombre} ({codigo}):\n{traduccion}\n\n"
+
+            # Update result area with translations
+            self.result_buffer.set_text(result_text)
+
+        except LangDetectException:
+            self.result_buffer.set_text("The language of the text could not be detected.")
+        except Exception as e:
+            self.result_buffer.set_text(f"An error occurred: {e}")
+
+
+def main():
+    app = TranslatorApp()
+    app.connect("destroy", Gtk.main_quit)
+    app.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()
