@@ -52,9 +52,12 @@ def detect_and_translate(text):
 
         # Optionally, translate to all other languages
         for codigo, nombre in idiomas.items():
-            if codigo != language:  # Avoid redundant translation
-                traduccion = GoogleTranslator(source=language, target=codigo).translate(text)
-                print(f"Translation to {nombre} ({codigo}): {traduccion}")
+            traduccion = GoogleTranslator(source=language, target=codigo).translate(text)
+            print(f"{nombre} ({codigo}) \n{traduccion} \n")
+
+            # if codigo != language:  # Avoid redundant translation
+            #     traduccion = GoogleTranslator(source=language, target=codigo).translate(text)
+            #     print(f"{nombre} ({codigo}) \n{traduccion} \n")
 
     except LangDetectException:
         print("The language of the text could not be detected.")
