@@ -21,3 +21,7 @@ translator
 
  - tsysen.py
    - Description: 
+
+text2speech
+  - text2speech.py
+    - Description: 
