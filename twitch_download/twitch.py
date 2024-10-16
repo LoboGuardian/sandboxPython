@@ -4,111 +4,118 @@ import re
 import requests
 from bs4 import BeautifulSoup
 import time
+from typing import Tuple, Optional
 
-def get_video_info(video_url):
-    """
-    Extract the video ID and title from a given Twitch video URL.
+# Constants for configuration
+MAX_RETRIES = 3
+RETRY_DELAY = 5  # seconds
+QUALITY_OPTIONS = ["best", "720p", "480p", "360p", "audio_only"]
+DEFAULT_QUALITY = "best"
 
-    Args:
-        video_url (str): The URL of the Twitch video.
-
-    Returns:
-        tuple: A tuple containing the video ID and title.
-
-    Raises:
-        ValueError: If the URL is invalid or if the title cannot be found.
-        ConnectionError: If the video page cannot be fetched.
-    """
-    # Extract video ID from the URL
+def get_video_info(video_url: str) -> Tuple[str, str]:
+    """Extract the video ID and title from the given Twitch video URL."""
     match = re.search(r"twitch\.tv/videos/(\d+)", video_url)
     if not match:
-        raise ValueError("Invalid Twitch video URL. Please enter a valid URL.")
-    
+        raise ValueError("Invalid Twitch video URL.")
     video_id = match.group(1)
 
-    # Fetch the HTML of the video page
     response = requests.get(video_url)
     if response.status_code != 200:
         raise ConnectionError("Failed to retrieve the video page.")
-    
-    # Parse the HTML to find the video title using meta tags
-    soup = BeautifulSoup(response.text, 'html.parser')
 
-    # Try to find the title in the <title> tag first
+    soup = BeautifulSoup(response.text, 'html.parser')
     title_tag = soup.find('title')
     if title_tag:
         video_title = title_tag.text.replace(" - Twitch", "").strip()
-        if video_title:
-            return video_id, video_title
-    
-    # Fallback to looking for meta tags that might have a better title
+        return video_id, video_title
+
     meta_title_tag = soup.find("meta", property="og:title")
     if meta_title_tag and 'content' in meta_title_tag.attrs:
-        video_title = meta_title_tag['content']
-        return video_id, video_title.strip()
+        return video_id, meta_title_tag['content'].strip()
 
-    # Raise an error if no title could be found
     raise ValueError("Could not find the video title.")
 
-def download_video(video_url, quality, output_filename):
-    """
-    Download the video using Streamlink.
+def get_stream_url_size(url: str) -> Optional[int]:
+    """Get the size of the stream from the URL using a HEAD request."""
+    try:
+        response = requests.head(url, allow_redirects=True)
+        if response.status_code == 200 and 'Content-Length' in response.headers:
+            return int(response.headers['Content-Length'])
+    except requests.RequestException as e:
+        print(f"Error fetching size for {url}: {e}")
+    return None
 
-    Args:
-        video_url (str): The URL of the Twitch video.
-        quality (str): The desired quality for download (e.g., 'best', '720p').
-        output_filename (str): The filename for the downloaded video.
+def list_quality_with_sizes(video_url: str):
+    """List all available qualities with their estimated file sizes."""
+    streams = streamlink.streams(video_url)
+    if not streams:
+        raise ValueError("No streams found for the given URL.")
 
-    Returns:
-        bool: True if the download was successful, False otherwise.
-    """
+    for quality, stream in streams.items():
+        stream_url = stream.to_url()
+        size = get_stream_url_size(stream_url)
+        size_mb = f"{size / (1024 * 1024):.2f} MB" if size else "Unknown"
+        print(f"Quality: {quality}, Estimated Size: {size_mb}")
+
+def download_video(video_url: str, quality: str, output_filename: str) -> bool:
+    """Download the video using Streamlink."""
     command = f"streamlink {video_url} {quality} -o \"{output_filename}\""
     print(f"Starting download: {output_filename} at quality: {quality}.")
-    
-    # Execute the command using subprocess
     try:
-        subprocess.run(command, shell=True, check=True)
+        subprocess.run(command.split(), check=True)
         print(f"Successfully downloaded: {output_filename}")
+        return True
     except subprocess.CalledProcessError as e:
-        print(f"Error occurred while downloading: {e}")
+        print(f"Error occurred during download: {e}")
         return False
-    
-    return True
 
-def main():
-    video_url = input("Enter the Twitch video URL: ")  # User Input
+def attempt_download(video_url: str, quality: str, output_filename: str, max_retries: int = MAX_RETRIES) -> bool:
+    """Attempt to download the video with retries on failure."""
+    for attempt in range(max_retries):
+        if download_video(video_url, quality, output_filename):
+            return True
+        print(f"Retrying download... ({attempt + 1}/{max_retries})")
+        time.sleep(RETRY_DELAY)
+    print("Failed to download the video after several attempts.")
+    return False
 
-    # Get video ID and title
-    try:
-        video_id, video_title = get_video_info(video_url)
-    except Exception as e:
-        print(f"Error: {e}")
-        return
+def prompt_video_url() -> str:
+    """Prompt the user to enter the Twitch video URL."""
+    return input("Enter the Twitch video URL: ")
 
-    # Set the output filename using the video title
-    output_filename = f"{video_title.replace('/', '_')}_{video_id}.mp4"
-
-    # Set the quality options
-    quality_options = ["best", "720p", "480p", "360p"]
-
+def prompt_quality_selection(quality_options: list[str]) -> str:
+    """Prompt the user to select a video quality."""
     print("Available quality options:")
     for i, option in enumerate(quality_options):
         print(f"{i}: {option}")
+    choice = input("Select quality (0 for best, or enter desired quality): ")
+    return quality_options[int(choice)] if choice.isdigit() and int(choice) < len(quality_options) else DEFAULT_QUALITY
 
-    # User selects quality
-    quality_choice = input("Select quality (0 for best, or enter desired quality): ")
-    selected_quality = quality_options[int(quality_choice)] if quality_choice.isdigit() and int(quality_choice) < len(quality_options) else "best"
+def handle_error(error: Exception):
+    """Print the error message."""
+    print(f"Error: {error}")
 
-    # Retry downloading in case of failure
-    max_retries = 3
-    for attempt in range(max_retries):
-        if download_video(video_url, selected_quality, output_filename):
-            break
-        else:
-            print(f"Retrying download... ({attempt + 1}/{max_retries})")
-            time.sleep(5)  # Wait before retrying
-    else:
-        print("Failed to download the video after several attempts.")
+def main():
+    video_url = prompt_video_url()
+
+    try:
+        video_id, video_title = get_video_info(video_url)
+    except (ValueError, ConnectionError) as e:
+        handle_error(e)
+        return
+
+    # print("\nFetching available qualities and their sizes...")
+    # try:
+    #     list_quality_with_sizes(video_url)
+    # except ValueError as e:
+    #     handle_error(e)
+    #     return
+
+    output_filename = f"{video_title.replace('/', '_')}_{video_id}.mp4"
+    selected_quality = prompt_quality_selection(QUALITY_OPTIONS)
+
+    if not attempt_download(video_url, selected_quality, output_filename):
+        print("Download failed.")
 
 if __name__ == "__main__":
     main()
