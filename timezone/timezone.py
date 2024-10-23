@@ -9,7 +9,7 @@ local_tz = pytz.timezone('America/Caracas')
 
 # YYYY-MM-DD
 # Enter the actual date or it won't understand timezone changes (like when Mexico and Colombia change 1 hour)
-date_to_convert = "2024-10-23 12:00:00"
+date_to_convert = "2024-10-23 12:15:00"
 
 # Convert the string to a datetime object
 date_to_convert = datetime.datetime.strptime(date_to_convert, "%Y-%m-%d %H:%M:%S")
@@ -17,9 +17,9 @@ date_to_convert = datetime.datetime.strptime(date_to_convert, "%Y-%m-%d %H:%M:%S
 # Localize the datetime object to the specified timezone
 localized_date = local_tz.localize(date_to_convert)
 
-print(date_to_convert)
+# print(date_to_convert)
 
-print("Generating flag block:\n")
+# print("Generating flag block:\n")
 
 # In order of priority
 zones = [
@@ -115,15 +115,16 @@ for country in zones:
     # Format the time based on the timezone
     if country[1] == "Europe/Madrid":
         # Print the time in 24-hour format and an "H" at the end
-        formatted_time = dtc.strftime("%-H")  # Using 24-hour format
+        formatted_time = dtc.strftime("%-H:%MH")  # Using 24-hour format
     else:
         # Format the time correctly considering if DST is in effect
         if dtc.utcoffset().total_seconds() == dtc.dst().total_seconds():
             # If we're in DST, we may need to subtract that from the standard offset
-            formatted_time = dtc.strftime("%-I%p (DST)")
+            formatted_time = dtc.strftime("%-I:%M %p (DST)").replace(" PM", "PM").replace(" AM", "AM")
         else:
             # Print the time in 12-hour format AM/PM
-            formatted_time = dtc.strftime("%-I%p")
+            # formatted_time = dtc.strftime("%-I%p")
+            formatted_time = dtc.strftime("%I:%M %p").replace(" PM", "PM").replace(" AM", "AM")
 
     if formatted_time in times:
         times[formatted_time] += country[0]
@@ -143,6 +144,15 @@ for country in zones:
     times[formatted_time] += " "
 
 for time, flag in times.items():
-    if flag != "X":
-        # print(time.lower(), flag.strip())
-        print(time, flag.strip())
+    if flag.strip() != "":
+        # For Spain, print in specified format
+        if "🇪🇸" in flag:
+            print(f"{time} {flag.strip()}")
+        else:
+            # Format '5PM' as '05:00'
+            if "PM" in time:
+                hour, minute = time.split(":")
+                formatted_output = f"{int(hour):02d}:{minute}"
+                print(f"{formatted_output} {flag.strip()}")
+            else:
+                print(f"{time} {flag.strip()}")
