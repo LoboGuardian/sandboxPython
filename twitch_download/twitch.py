@@ -187,11 +187,6 @@ def main():
     downloads_folder = os.path.expanduser('~/Downloads/')
     output_filename = os.path.join(downloads_folder, f"{video_title.replace('/', '_')}_{video_id}.mp4")
 
-    # output_filename = f"{video_title.replace('/', '_')}_{video_id}.mp4"
-    # selected_quality = prompt_quality_selection(QUALITY_OPTIONS)
-
-    # if not attempt_download(video_url, selected_quality, output_filename):
-        # print("Download failed.")
     selected_quality = prompt_quality_selection(QUALITY_OPTIONS)
 
     if attempt_download(video_url, selected_quality, output_filename):
