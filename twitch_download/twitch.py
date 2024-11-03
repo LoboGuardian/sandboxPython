@@ -6,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 import time
 from typing import Tuple, Optional
+from tqdm import tqdm
 
 # Constants for configuration
 MAX_RETRIES = 3 # Maximum number of download retries
@@ -38,14 +39,13 @@ def get_video_info(video_url: str) -> Tuple[str, str]:
         raise ConnectionError("Failed to retrieve the video page.")
 
     soup = BeautifulSoup(response.text, 'html.parser')
-    title_tag = soup.find('title')
-    if title_tag:
-        video_title = title_tag.text.replace(" - Twitch", "").strip()
-        return video_id, video_title
+    title = soup.find('title')
+    if title: 
+        return video_id,  title.text.replace(" - Twitch", "").strip()
 
-    meta_title_tag = soup.find("meta", property="og:title")
-    if meta_title_tag and 'content' in meta_title_tag.attrs:
-        return video_id, meta_title_tag['content'].strip()
+    meta_title = soup.find("meta", property="og:title")
+    if meta_title and 'content' in meta_title.attrs:
+        return video_id, meta_title['content'].strip()
 
     raise ValueError("Could not find the video title.")
 
@@ -61,11 +61,11 @@ def get_stream_url_size(url: str) -> Optional[int]:
     """
     try:
         response = requests.head(url, allow_redirects=True)
-        if response.status_code == 200 and 'Content-Length' in response.headers:
-            return int(response.headers['Content-Length'])
+        return int(response.headers.get('Content-Length', 0))
     except requests.RequestException as e:
         print(f"Error fetching size for {url}: {e}")
     return None
+
 
 # Function to list available video qualities with estimated sizes
 def list_quality_with_sizes(video_url: str):
@@ -83,8 +83,7 @@ def list_quality_with_sizes(video_url: str):
         raise ValueError("No streams found for the given URL.")
 
     for quality, stream in streams.items():
-        stream_url = stream.to_url()
-        size = get_stream_url_size(stream_url)
+        size = get_stream_url_size(stream.url)
         size_mb = f"{size / (1024 * 1024):.2f} MB" if size else "Unknown"
         print(f"Quality: {quality}, Estimated Size: {size_mb}")
 
@@ -108,7 +107,7 @@ def download_video(video_url: str, quality: str, output_filename: str) -> bool:
         print(f"Successfully downloaded: {output_filename}")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"Error occurred during download: {e}")
+        print(f"An error occurred during download: {e}")
         return False
 
 # Function to attempt download with retries
@@ -133,67 +132,52 @@ def attempt_download(video_url: str, quality: str, output_filename: str, max_ret
     print("Failed to download the video after several attempts.")
     return False
 
-# Function to prompt user for video URL
-def prompt_video_url() -> str:
+def get_downloads_folder():
     """
-    This function prompts the user to enter the Twitch video URL and returns it.
-
-    Returns:
-      str: The entered Twitch video URL.
+    This function checks for the user's Downloads folder and returns its path.
+    If Downloads doesn't exist, it creates it.
     """
-    return input("Enter the Twitch video URL: ")
-
-# Function to prompt user to select video quality
-def prompt_quality_selection(quality_options: list[str]) -> str:
-    """
-    This function prompts the user to select a video quality from the provided options.
-
-    Args:
-      quality_options (list[str]): A list of available video quality options.
-
-    Returns:
-      str: The selected video quality.
-    """
-    print("Available quality options:")
-    for i, option in enumerate(quality_options):
-        print(f"{i}: {option}")
-    choice = input("Select quality (0 for best, or enter desired quality): ")
-    return quality_options[int(choice)] if choice.isdigit() and int(choice) < len(quality_options) else DEFAULT_QUALITY
-
-# Function to handle errors
-def handle_error(error: Exception):
-    """
-    This function prints a generic error message.
-
-    Args:
-      error (Exception): The exception object.
-    """
-    print(f"Error: {error}")
+    # Get the user's home directory
+    home = os.path.expanduser("~")
+    
+    # Check if the Downloads folder exists
+    downloads = os.path.join(home, "Downloads")
+    if os.path.exists(downloads) and os.path.isdir(downloads):
+        return downloads
+    
+    # If Downloads doesn't exist, use the home directory
+    return home
 
 # Main function - program entry point
 def main():
-    video_url = prompt_video_url()
-    
     try:
-        video_id, video_title = get_video_info(video_url)
-    except (ValueError, ConnectionError) as e:
-        handle_error(e)
+        video_url = input("Enter the Twitch video URL: ")
+
+        try:
+            video_id, video_title = get_video_info(video_url)
+        except (ValueError, ConnectionError) as e:
+            print(f"Error: {e}")
+            return
+
+        filename = f"{video_title.replace('/', '_')}_{video_id}.mp4"
+        downloads_folder = get_downloads_folder()
+        output_filename = os.path.join(downloads_folder, filename)
+
+        print(f"File will be saved to: {output_filename}")
+
+        print("Available quality options:")
+        for i, option in enumerate(QUALITY_OPTIONS):
+            print(f"{i}: {option}")
+        choice = input("Select quality (0 for best, or enter desired quality): ")
+        selected_quality = QUALITY_OPTIONS[int(choice)] if choice.isdigit() and int(choice) < len(QUALITY_OPTIONS) else DEFAULT_QUALITY
+
+        if attempt_download(video_url, selected_quality, output_filename):
+            print("Download successful!")
+        else:
+            print("Download failed.")
+    except KeyboardInterrupt:
+        print("\nProgram interrupted by user. Exiting...")
         return
-
-    # Optionally list available qualities and sizes for user information
-    # list_quality_with_sizes(video_url)
-
-    # Determine the output filename, ensuring a valid path
-    downloads_folder = os.path.expanduser('~/Downloads/')
-    output_filename = os.path.join(downloads_folder, f"{video_title.replace('/', '_')}_{video_id}.mp4")
-
-    selected_quality = prompt_quality_selection(QUALITY_OPTIONS)
-
-    if attempt_download(video_url, selected_quality, output_filename):
-        print("Download successful!")
-    else:
-        print("Download failed.")
-
 
 if __name__ == "__main__":
     main()

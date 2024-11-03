@@ -7,6 +7,9 @@ name = "pypi"
 streamlink = "*"
 requests = "*"
 beautifulsoup4 = "*"
+tqdm = "*"
+aiohttp = "*"
+aiofiles = "*"
 
 [dev-packages]
 
