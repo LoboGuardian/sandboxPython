@@ -53,4 +53,5 @@ def pomodoro_timer(work_time=25, short_break=5, long_break=15):
     print("\nPomodoro timer interrupted.")
 
 if __name__ == "__main__":
+  input("Press any key to start the Pomodoro timer: ")
   pomodoro_timer()
