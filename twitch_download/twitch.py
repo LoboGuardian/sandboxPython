@@ -7,12 +7,16 @@ from bs4 import BeautifulSoup
 import time
 from typing import Tuple, Optional
 
+
 # Constants for configuration
 MAX_RETRIES = 3 # Maximum number of download retries
 RETRY_DELAY = 5  # Delay between retries in seconds
-QUALITY_OPTIONS = ["source", "high", "medium", "low", "audio_only"] # Available video quality options
-# QUALITY_OPTIONS = ["best", "1080p", "720p", "480p", "360p", "audio_only"] # Available video quality options
-DEFAULT_QUALITY = "best" # Default video quality
+# Available video quality options
+QUALITY_OPTIONS = ["best", "high", "medium", "low", "audio_only"] 
+# QUALITY_OPTIONS = ["best", "1080p", "720p", "480p", "360p", "audio_only"] 
+# Default video quality
+DEFAULT_QUALITY = "best"
+
 
 # Function to extract video ID and title from URL
 def get_video_info(video_url: str) -> Tuple[str, str]:
@@ -44,6 +48,7 @@ def get_video_info(video_url: str) -> Tuple[str, str]:
     title = title_tag['content'] if title_tag and 'content' in title_tag.attrs else title_tag.text
     return video_id, title.replace(" - Twitch", "").strip()
 
+
 # Function to download the video using streamlink
 def download_video(video_url: str, quality: str, output_filename: str) -> bool:
     """
@@ -68,6 +73,7 @@ def download_video(video_url: str, quality: str, output_filename: str) -> bool:
         print(f"An error occurred during download: {e}")
         return False
 
+
 # Function to attempt download with retries
 def attempt_download(video_url: str, quality: str, output_filename: str, max_retries: int = MAX_RETRIES) -> bool:
     """
@@ -90,6 +96,7 @@ def attempt_download(video_url: str, quality: str, output_filename: str, max_ret
     print("Failed to download the video after several attempts.")
     return False
 
+
 def get_downloads_folder():
     """
     This function checks for the user's Downloads folder and returns its path.
@@ -101,6 +108,7 @@ def get_downloads_folder():
     if not os.path.exists(downloads):
         os.makedirs(downloads)  # Create if it doesn't exist.
     return downloads
+
 
 # Main function - program entry point
 def main():
@@ -155,7 +163,7 @@ def main():
             else:
                 choice = input("Please enter a valid quality choice: ")
                 selected_quality = QUALITY_OPTIONS[int(choice)] if choice.isdigit() and int(choice) < len(QUALITY_OPTIONS) else DEFAULT_QUALITY
-                
+
         if attempt_download(video_url, selected_quality, output_filename):
             print("Download successful!")
         else:
@@ -163,6 +171,7 @@ def main():
     except KeyboardInterrupt:
         print("\nProgram interrupted by user. Exiting...")
         return
+
 
 if __name__ == "__main__":
     main()
